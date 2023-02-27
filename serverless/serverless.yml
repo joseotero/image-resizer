@@ -1,0 +1,52 @@
+service: lambda
+
+app: image-resizer
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+
+  stage: production
+  region: eu-west-1
+
+functions:
+  image-resizer:
+    handler: image-resizer/app.lambdaHandler
+    description: Image resize handler
+    memorySize: 128
+    timeout: 10
+
+    environment:
+      BUCKET_NAME: image-resizer-XXXXX
+
+    events:
+      - httpApi:
+          path: /image
+          method: post
+          integration: lambda
+          request:
+            template:
+              multipart/form-data: |
+                #set($inputRoot = $input.path('$'))
+                #set($S3key = $input.params('S3key'))
+                #set($filename = $inputRoot.file.filename)
+                #set($contenttype = $inputRoot.file.headers.get('Content-Type'))
+                {
+                  "body": {
+                    "S3key": "$S3key",
+                    "file": {
+                      "content": "$util.base64Encode($inputRoot.file.content)",
+                      "filename": "$filename",
+                      "content-type": "$contenttype"
+                    }
+                  }
+                }
+            response:
+              headers:
+                Content-Type: "'image/png'"
+      - s3: lambda-code-XXXXX
+      - cloudwatchLog: '/aws/lambda/image_resizer'
+
+
